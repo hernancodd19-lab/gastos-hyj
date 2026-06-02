@@ -308,11 +308,12 @@
     const btn = document.getElementById('btnCargar');
     btn.disabled = true;
     btn.innerHTML = '<div class="spinner"></div>';
+    const range = config.sheetName + "!A:F";
 
-    const range = `'${config.sheetName}'!A:F`;  const range = `'${config.sheetName}'!A:F`;
+    console.log("Range:", range);
 
-const url =
-  `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+    const url =
+    `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
 
     try {
       const res = await fetch(url, {
