@@ -134,7 +134,7 @@
     </div>
     <div class="field">
       <label>Nombre de la hoja</label>
-      <input type="text" id="s_sheetName" value="Hoja1">
+      <input type="text" id="s_sheetName" value="Gastos HyJ">
     </div>
     <div class="hint">
       🔒 Tu Client ID se guarda solo en este dispositivo. Después de guardar, iniciá sesión con Google para autorizar el acceso a tu planilla.
@@ -222,7 +222,7 @@
 <script src="https://accounts.google.com/gsi/client" async></script>
 
 <script>
-  let config = { clientId: '', sheetId: '', sheetName: 'Hoja1' };
+  let config = { clientId: '', sheetId: '', sheetName: 'Gastos HyJ' };
   let accessToken = null;
   let selectedPerson = 'Hernan';
   let sessionHistory = [];
@@ -250,7 +250,7 @@
   function setupDone() {
     const cid = document.getElementById('s_clientId').value.trim();
     const sid = document.getElementById('s_sheetId').value.trim();
-    const sname = document.getElementById('s_sheetName').value.trim() || 'Hoja1';
+    const sname = document.getElementById('s_sheetName').value.trim() || 'Gastos HyJ';
     if (!cid) { showToast('Ingresá el Client ID', 'error'); return; }
     if (!sid) { showToast('Ingresá el ID de la planilla', 'error'); return; }
     config = { clientId: cid, sheetId: sid, sheetName: sname };
@@ -309,7 +309,7 @@
     btn.disabled = true;
     btn.innerHTML = '<div class="spinner"></div>';
 
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${encodeURIComponent(config.sheetName)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+    const range = `${config.sheetName}!A:F`;  const url =   `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
 
     try {
       const res = await fetch(url, {
@@ -370,7 +370,7 @@
   function saveSettings() {
     const cid = document.getElementById('cfg_clientId').value.trim();
     const sid = document.getElementById('cfg_sheetId').value.trim();
-    const sname = document.getElementById('cfg_sheetName').value.trim() || 'Hoja1';
+    const sname = document.getElementById('cfg_sheetName').value.trim() || 'Gastos HyJ';
     if (!cid || !sid) { showToast('Completá los campos', 'error'); return; }
     config = { clientId: cid, sheetId: sid, sheetName: sname };
     localStorage.setItem('gastosHyJ_config', JSON.stringify(config));
