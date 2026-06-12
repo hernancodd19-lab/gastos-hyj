@@ -811,9 +811,41 @@
         document.getElementById('monto').value = '';
         document.querySelectorAll('#tipoChips .chip').forEach(c => c.classList.remove('selected'));
       }
-    } catch(e) {
-      showToast('Sin conexión', 'error');
-    }
+    } catch (e) {
+
+  if (!navigator.onLine) {
+    showToast('Sin conexión a Internet', 'error');
+  }
+
+  else if (
+      e.message &&
+      (
+        e.message.includes('401') ||
+        e.message.includes('UNAUTHENTICATED')
+      )
+  ) {
+
+    setAuthDisconnected('Sesión expirada');
+
+    showToast(
+      'La sesión con Google expiró. Reconectá la cuenta.',
+      'error'
+    );
+
+  }
+
+  else {
+
+    console.error(e);
+
+    showToast(
+      'Error al comunicarse con Google Sheets',
+      'error'
+    );
+
+  }
+
+}
 
     btn.disabled = false;
     btn.innerHTML = 'Cargar movimiento';
