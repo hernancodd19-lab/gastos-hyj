@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gastos HyJ">
+<meta name="theme-color" content="#0a0a0b">
+<title>Gastos HyJ</title>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+  /* ============ DESIGN TOKENS ============
+     Paleta oscura, minimalista. Sin amarillos.
+     - bg/surface: grises casi negros, varios niveles
+     - accent: verde esmeralda (acciones primarias / ingresos)
+     - expense: coral (gastos)
+     - texto: blanco/grises claros para buen contraste
+  ===================================== */
+  :root {
+    --bg: #0a0a0b;
+    --surface: #151517;
+    --surface2: #1d1d20;
+    --surface3: #26262a;
+    --border: #2a2a2f;
+    --text: #f5f5f7;
+    --text-mid: #a3a3ab;
+    --text-dim: #6c6c74;
+    --accent: #3ecf8e;       /* verde esmeralda - acciones / ingresos */
+    --accent-strong: #2fae77;
+    --expense: #f5786b;      /* coral - gastos */
+    --info: #6e8efb;         /* azul suave - elementos informativos */
+    --radius: 18px;
+    --radius-sm: 12px;
+    --font-display: 'Syne', sans-serif;
+    --font-body: 'Instrument Sans', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overscroll-behavior: none; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body); min-height: 100vh; display: flex; flex-direction: column; }
+
+  .screen { display: none; flex-direction: column; min-height: 100vh; }
+  .screen.active { display: flex; }
+
+  /* SETUP */
+  #setupScreen { padding: 56px 24px 32px; justify-content: center; }
+  .setup-logo { text-align: center; margin-bottom: 40px; }
+  .setup-logo .icon { width: 64px; height: 64px; background: var(--accent); border-radius: 18px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 28px; }
+  .setup-logo h1 { font-family: var(--font-display); font-size: 28px; font-weight: 800; letter-spacing: -1px; color: var(--text); }
+  .setup-logo p { font-size: 14px; color: var(--text-mid); margin-top: 4px; }
+  .setup-form { display: flex; flex-direction: column; gap: 16px; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dim); }
+  .field input, .field select {
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--text); font-family: var(--font-body); font-size: 14px; padding: 14px 16px; outline: none;
+    transition: border-color 0.2s; width: 100%; -webkit-appearance: none;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+
+  .hint {
+    font-size: 12px; color: var(--text-mid); line-height: 1.6; background: var(--surface);
+    border-radius: var(--radius-sm); padding: 12px 14px; border-left: 3px solid var(--accent);
+  }
+
+  /* TOPBAR */
+  .topbar { padding: 56px 24px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .topbar-row { display: flex; align-items: center; justify-content: space-between; }
+  .topbar h1 { font-family: var(--font-display); font-size: 24px; font-weight: 800; letter-spacing: -0.5px; color: var(--text); }
+  .topbar h1 span { color: var(--accent); }
+  .topbar-right { display: flex; gap: 8px; }
+  .icon-btn {
+    width: 38px; height: 38px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px;
+  }
+
+  .auth-badge { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 12px; color: var(--text-dim); }
+  .auth-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
+  .auth-dot.connected { background: var(--accent); }
+  .auth-badge a { color: var(--info); text-decoration: none; font-weight: 600; }
+
+  /* TABS (Cargar / Dashboard) */
+  .tabs { display: flex; gap: 8px; padding: 16px 24px 0; background: var(--surface); }
+  .tab-btn {
+    flex: 1; padding: 11px; border-radius: var(--radius-sm); text-align: center; font-family: var(--font-display);
+    font-weight: 700; font-size: 13px; letter-spacing: 0.3px; color: var(--text-mid); background: var(--surface2);
+    border: 1px solid var(--border); cursor: pointer; transition: all 0.15s; text-transform: uppercase;
+  }
+  .tab-btn.active { background: var(--accent); color: #0a0a0b; border-color: var(--accent); }
+
+  .content { flex: 1; overflow-y: auto; padding: 24px; padding-bottom: 120px; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; animation: fadeIn 0.25s ease; }
+
+  .person-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+  .person-btn {
+    background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); padding: 14px;
+    text-align: center; cursor: pointer; transition: all 0.2s; font-family: var(--font-display); font-size: 16px;
+    font-weight: 700; color: var(--text-mid);
+  }
+  .person-btn.active { border-color: var(--accent); background: rgba(62,207,142,0.08); color: var(--accent); }
+  .person-btn .avatar { font-size: 26px; margin-bottom: 6px; }
+
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
+  .form-group input, .form-group select {
+    width: 100%; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--text); font-family: var(--font-body); font-size: 16px; padding: 14px 16px; outline: none;
+    transition: border-color 0.2s; -webkit-appearance: none;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+  .form-group input[type="text"].amount-input { font-family: var(--font-mono); font-size: 22px; font-weight: 700; }
+
+  /* select arrow custom */
+  .form-group select, .field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23a3a3ab' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 16px center; padding-right: 38px;
+  }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .type-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .chip {
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: 20px; padding: 7px 14px;
+    font-size: 13px; color: var(--text-mid); cursor: pointer; transition: all 0.15s;
+  }
+  .chip.selected { background: rgba(62,207,142,0.1); border-color: var(--accent); color: var(--accent); }
+
+  /* Movimiento: Gasto / Ingreso */
+  .movement-toggle { display: flex; gap: 10px; }
+  .movement-chip {
+    flex: 1; text-align: center; padding: 13px; border-radius: var(--radius-sm); border: 1.5px solid var(--border);
+    background: var(--surface); cursor: pointer; font-weight: 700; font-family: var(--font-display); font-size: 14px;
+    color: var(--text-mid); transition: all 0.15s; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .movement-chip.gasto.selected { border-color: var(--expense); color: var(--expense); background: rgba(245,120,107,0.08); }
+  .movement-chip.ingreso.selected { border-color: var(--accent); color: var(--accent); background: rgba(62,207,142,0.08); }
+
+  .divider { height: 1px; background: var(--border); margin: 22px 0; }
+  .section-title {
+    font-family: var(--font-display); font-size: 13px; font-weight: 700; letter-spacing: 0.6px; color: var(--text-mid);
+    text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between; animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .history-left .h-name { font-family: var(--font-display); font-weight: 700; font-size: 14px; margin-bottom: 2px; color: var(--text); }
+  .history-left .h-meta { font-size: 12px; color: var(--text-dim); }
+  .history-right .h-amount { font-family: var(--font-mono); font-weight: 700; font-size: 17px; }
+  .history-right .h-amount.gasto { color: var(--expense); }
+  .history-right .h-amount.ingreso { color: var(--accent); }
+  .empty-state { text-align: center; padding: 28px 16px; color: var(--text-dim); font-size: 13px; }
+
+  /* DASHBOARD */
+  .dash-toolbar { display: flex; gap: 10px; margin-bottom: 18px; align-items: center; }
+  .dash-toolbar select { flex: 1; }
+  .refresh-btn {
+    width: 46px; height: 46px; flex-shrink: 0; border-radius: var(--radius-sm); background: var(--surface2);
+    border: 1px solid var(--border); color: var(--text); font-size: 18px; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; transition: transform 0.4s;
+  }
+  .refresh-btn.spinning { animation: spin 0.8s linear infinite; }
+
+  .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px;
+  }
+  .stat-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 8px; font-weight: 600; }
+  .stat-card .value { font-family: var(--font-mono); font-size: 21px; font-weight: 700; color: var(--text); word-break: break-all; }
+  .stat-card .value.expense { color: var(--expense); }
+  .stat-card .value.income { color: var(--accent); }
+  .stat-card.full { grid-column: 1 / -1; }
+  .stat-card.full .value { font-size: 30px; }
+
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px;
+    margin-bottom: 16px;
+  }
+  .chart-card h3 {
+    font-family: var(--font-display); font-size: 13px; margin-bottom: 14px; color: var(--text-mid);
+    text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700;
+  }
+  .chart-card .chart-wrap { position: relative; height: 230px; }
+  .chart-card .chart-wrap.pie { height: 220px; }
+  .chart-empty { text-align: center; padding: 40px 16px; color: var(--text-dim); font-size: 13px; }
+
+  /* TABLA */
+  .table-wrap { overflow-x: auto; }
+  .movements-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 480px; }
+  .movements-table th {
+    text-align: left; padding: 10px 8px; color: var(--text-dim); font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.5px; border-bottom: 1px solid var(--border); font-weight: 700;
+  }
+  .movements-table td { padding: 10px 8px; border-bottom: 1px solid var(--border); color: var(--text); white-space: nowrap; }
+  .movements-table tr:last-child td { border-bottom: none; }
+  .amount-cell.gasto { color: var(--expense); font-family: var(--font-mono); }
+  .amount-cell.ingreso { color: var(--accent); font-family: var(--font-mono); }
+  .tag-pill {
+    font-size: 10.5px; padding: 3px 9px; border-radius: 8px; background: var(--surface2); color: var(--text-mid);
+    border: 1px solid var(--border);
+  }
+
+  .bottom-action {
+    position: fixed; bottom: 0; left: 0; right: 0; padding: 16px 24px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)); background: linear-gradient(to top, var(--bg) 75%, transparent);
+  }
+
+  .btn-main {
+    width: 100%; background: var(--accent); color: #0a0a0b; border: none; border-radius: var(--radius);
+    font-family: var(--font-display); font-size: 16px; font-weight: 700; padding: 18px; cursor: pointer;
+    transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-main:active { transform: scale(0.97); background: var(--accent-strong); }
+  .btn-main:disabled { background: var(--surface3); color: var(--text-dim); transform: none; cursor: not-allowed; }
+  .btn-main.secondary { background: var(--surface2); color: var(--text); border: 1.5px solid var(--border); margin-top: 10px; }
+  .btn-main.small { padding: 12px; font-size: 13px; }
+
+  .toast {
+    position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface3);
+    border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 20px; font-size: 14px;
+    white-space: nowrap; opacity: 0; transition: all 0.3s; z-index: 999; max-width: 320px; text-align: center; color: var(--text);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--accent); color: var(--accent); }
+  .toast.error { border-color: var(--expense); color: var(--expense); }
+
+  .settings-panel { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: flex-end; }
+  .settings-panel.open { display: flex; }
+  .settings-sheet {
+    background: var(--surface); border-radius: 24px 24px 0 0; padding: 24px; padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    width: 100%; display: flex; flex-direction: column; gap: 14px; max-height: 85vh; overflow-y: auto;
+  }
+  .settings-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 8px; }
+  .settings-sheet h2 { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--text); }
+
+  .spinner { width: 18px; height: 18px; border: 2px solid rgba(0,0,0,0.2); border-top-color: #0a0a0b; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Responsive: pantallas mas grandes (tablet/desktop) */
+  @media (min-width: 720px) {
+    .content { max-width: 640px; margin: 0 auto; width: 100%; }
+    .topbar-row, .tabs, .auth-badge { max-width: 640px; margin: 0 auto; width: 100%; }
+    .bottom-action { display: flex; justify-content: center; }
+    .bottom-action > * { max-width: 640px; }
+    .dashboard-grid { grid-template-columns: 1fr 1fr 1fr; }
+    .stat-card.full { grid-column: span 3; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div class="screen active" id="setupScreen">
+  <div class="setup-logo">
+    <div class="icon">💸</div>
+    <h1>Gastos HyJ</h1>
+    <p>Conectá tu planilla de Google Sheets</p>
+  </div>
+  <div class="setup-form">
+    <div class="field">
+      <label>Google OAuth Client ID</label>
+      <input type="text" id="s_clientId" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>ID de la planilla</label>
+      <input type="text" id="s_sheetId" value="17gND7MBwXMuXqwVhOvJeYwrUC3e-E2OeXVhMaEgG9tg">
+    </div>
+    <div class="field">
+      <label>Nombre de la hoja</label>
+      <input type="text" id="s_sheetName" value="Gastos HyJ">
+    </div>
+    <div class="field">
+      <label>Moneda por defecto</label>
+      <select id="s_currency">
+        <option value="UYU">UYU - Peso uruguayo</option>
+        <option value="USD">USD - Dólar estadounidense</option>
+        <option value="EUR">EUR - Euro</option>
+        <option value="ARS">ARS - Peso argentino</option>
+        <option value="BRL">BRL - Real brasileño</option>
+      </select>
+    </div>
+    <div class="hint">
+      🔒 Tu Client ID se guarda solo en este dispositivo. Después de guardar, iniciá sesión con Google para autorizar el acceso a tu planilla. La app intenta mantener la sesión activa entre aperturas, pero por seguridad Google puede pedir reconectar cada tanto.
+    </div>
+    <button class="btn-main" onclick="setupDone()">Guardar y continuar →</button>
+  </div>
+</div>
+
+<!-- MAIN SCREEN -->
+<div class="screen" id="mainScreen">
+  <div class="topbar">
+    <div class="topbar-row">
+      <h1>Gastos <span>HyJ</span></h1>
+      <div class="topbar-right">
+        <div class="icon-btn" onclick="openSettings()">⚙️</div>
+      </div>
+    </div>
+    <div class="auth-badge">
+      <div class="auth-dot" id="authDot"></div>
+      <span id="authLabel">No conectado — <a href="#" onclick="signIn()">Iniciar sesión con Google</a></span>
+    </div>
+  </div>
+
+  <!-- Navegación entre Cargar gasto y Dashboard -->
+  <div class="tabs">
+    <div class="tab-btn active" id="tabBtnCargar" onclick="switchTab('cargar')">Cargar</div>
+    <div class="tab-btn" id="tabBtnDashboard" onclick="switchTab('dashboard')">Dashboard</div>
+  </div>
+
+  <div class="content">
+
+    <!-- ===================== PANEL: CARGAR GASTO ===================== -->
+    <div class="tab-panel active" id="panelCargar">
+      <div class="person-selector">
+        <div class="person-btn active" id="btn_hernan" onclick="selectPerson('Hernan')">
+          <div class="avatar">👨</div>Hernan
+        </div>
+        <div class="person-btn" id="btn_jessi" onclick="selectPerson('Jessi')">
+          <div class="avatar">👩</div>Jessi
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Tipo de movimiento</label>
+        <div class="movement-toggle">
+          <div class="movement-chip gasto selected" id="mov_gasto" onclick="selectMovimiento('Gasto')">Gasto</div>
+          <div class="movement-chip ingreso" id="mov_ingreso" onclick="selectMovimiento('Ingreso')">Ingreso</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Fecha</label>
+        <input type="date" id="fecha">
+      </div>
+
+      <div class="form-group">
+        <label>Categoría / Etiqueta</label>
+        <input type="text" id="tipo" placeholder="Ej: Super, Nafta, Luz..." autocomplete="off">
+        <div class="type-chips" id="tipoChips">
+          <div class="chip" onclick="setTipo('Super')">🛒 Super</div>
+          <div class="chip" onclick="setTipo('Nafta')">⛽ Nafta</div>
+          <div class="chip" onclick="setTipo('Luz')">💡 Luz</div>
+          <div class="chip" onclick="setTipo('Alquiler')">🏠 Alquiler</div>
+          <div class="chip" onclick="setTipo('Apps')">📱 Apps</div>
+          <div class="chip" onclick="setTipo('Salud')">🏥 Salud</div>
+          <div class="chip" onclick="setTipo('Sueldo')">💼 Sueldo</div>
+          <div class="chip" onclick="setTipo('Otros')">✨ Otros</div>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="form-group">
+          <label>Monto</label>
+          <!-- type=text + inputmode=decimal: permite "," o "." como separador decimal -->
+          <input type="text" inputmode="decimal" class="amount-input" id="monto" placeholder="0,00" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>Moneda</label>
+          <select id="moneda">
+            <option value="UYU">UYU $U</option>
+            <option value="USD">USD US$</option>
+            <option value="EUR">EUR €</option>
+            <option value="ARS">ARS AR$</option>
+            <option value="BRL">BRL R$</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-title">Esta sesión</div>
+      <div class="history-list" id="historyList">
+        <div class="empty-state">Aún no cargaste movimientos</div>
+      </div>
+    </div>
+
+    <!-- ===================== PANEL: DASHBOARD ===================== -->
+    <div class="tab-panel" id="panelDashboard">
+
+      <div class="dash-toolbar">
+        <select id="dashCurrency" onchange="renderDashboard()">
+          <!-- se llena dinámicamente según las monedas presentes en la planilla -->
+        </select>
+        <div class="refresh-btn" id="refreshBtn" onclick="loadSheetData(true)" title="Actualizar datos">🔄</div>
+      </div>
+
+      <div id="dashboardEmpty" class="chart-empty" style="display:none;">
+        No hay datos para mostrar todavía.<br>Cargá movimientos o conectá tu cuenta de Google y tocá 🔄 para sincronizar.
+      </div>
+
+      <div id="dashboardContent" style="display:none;">
+
+        <!-- Tarjetas resumen -->
+        <div class="dashboard-grid">
+          <div class="stat-card">
+            <div class="label">Gasto total</div>
+            <div class="value expense" id="statGastoTotal">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Ingresos totales</div>
+            <div class="value income" id="statIngresoTotal">—</div>
+          </div>
+          <div class="stat-card full balance">
+            <div class="label">Balance</div>
+            <div class="value" id="statBalance">—</div>
+          </div>
+          <div class="stat-card full">
+            <div class="label">Cantidad de movimientos</div>
+            <div class="value" id="statCantidad">—</div>
+          </div>
+        </div>
+
+        <!-- Gastos por categoría: barras -->
+        <div class="chart-card">
+          <h3>Gastos por categoría</h3>
+          <div class="chart-wrap"><canvas id="chartCategoriaBar"></canvas></div>
+        </div>
+
+        <!-- Distribución por categoría: torta -->
+        <div class="chart-card">
+          <h3>Distribución de gastos por categoría</h3>
+          <div class="chart-wrap pie"><canvas id="chartCategoriaPie"></canvas></div>
+        </div>
+
+        <!-- Gastos por mes: barras -->
+        <div class="chart-card">
+          <h3>Gastos por mes</h3>
+          <div class="chart-wrap"><canvas id="chartGastosMes"></canvas></div>
+        </div>
+
+        <!-- Evolución temporal: lineas -->
+        <div class="chart-card">
+          <h3>Evolución de ingresos y gastos</h3>
+          <div class="chart-wrap"><canvas id="chartEvolucion"></canvas></div>
+        </div>
+
+        <!-- Ultimos movimientos -->
+        <div class="chart-card">
+          <h3>Últimos movimientos</h3>
+          <div class="table-wrap">
+            <table class="movements-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Persona</th>
+                  <th>Categoría</th>
+                  <th>Moneda</th>
+                  <th>Monto</th>
+                </tr>
+              </thead>
+              <tbody id="ultimosMovimientos"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Boton inferior: cambia segun la pestaña activa -->
+  <div class="bottom-action" id="bottomAction">
+    <button class="btn-main" id="btnCargar" onclick="cargarGasto()">Cargar movimiento</button>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="settings-panel" id="settingsPanel" onclick="closeSettingsOutside(event)">
+  <div class="settings-sheet">
+    <div class="settings-handle"></div>
+    <h2>Configuración</h2>
+    <div class="field"><label>Client ID</label><input type="text" id="cfg_clientId"></div>
+    <div class="field"><label>ID de planilla</label><input type="text" id="cfg_sheetId"></div>
+    <div class="field"><label>Nombre de hoja</label><input type="text" id="cfg_sheetName"></div>
+    <div class="field">
+      <label>Moneda por defecto</label>
+      <select id="cfg_currency">
+        <option value="UYU">UYU - Peso uruguayo</option>
+        <option value="USD">USD - Dólar estadounidense</option>
+        <option value="EUR">EUR - Euro</option>
+        <option value="ARS">ARS - Peso argentino</option>
+        <option value="BRL">BRL - Real brasileño</option>
+      </select>
+    </div>
+    <button class="btn-main" onclick="saveSettings()">Guardar</button>
+    <button class="btn-main secondary" onclick="signIn()">🔄 Reconectar con Google</button>
+    <button class="btn-main secondary" onclick="closeSettings()">Cancelar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async></script>
+<!-- Chart.js para los graficos del dashboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+
+<script>
+  /* ============================================================
+     CONFIGURACION Y ESTADO GLOBAL
+     ============================================================ */
+
+  // Tabla de monedas soportadas: codigo, etiqueta y simbolo de visualizacion
+  const CURRENCIES = {
+    UYU: { label: 'Peso uruguayo', symbol: '$U' },
+    USD: { label: 'Dólar estadounidense', symbol: 'US$' },
+    EUR: { label: 'Euro', symbol: '€' },
+    ARS: { label: 'Peso argentino', symbol: 'AR$' },
+    BRL: { label: 'Real brasileño', symbol: 'R$' }
+  };
+
+  // Configuracion persistida en localStorage. tokenData guarda el access_token
+  // y su expiracion para intentar mantener la sesion entre aperturas.
+  let config = {
+    clientId: '',
+    sheetId: '',
+    sheetName: 'Gastos HyJ',
+    defaultCurrency: 'UYU',
+    tokenData: null // { access_token, expires_at }
+  };
+
+  let accessToken = null;
+  let selectedPerson = 'Hernan';
+  let selectedMovimiento = 'Gasto';
+  let sessionHistory = [];
+  let tokenClient = null;
+
+  // Datos leidos de la planilla (cache en memoria)
+  let sheetRecords = [];
+  let charts = {}; // instancias de Chart.js, para poder destruirlas al re-renderizar
+
+  /* ============================================================
+     INICIALIZACION
+     ============================================================ */
+
+  const saved = localStorage.getItem('gastosHyJ_config');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      config = Object.assign(config, parsed);
+      if (config.clientId) showScreen('mainScreen');
+    } catch(e) {}
+  }
+
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('fecha').value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    if (id === 'mainScreen') initGIS();
+  }
+
+  function setupDone() {
+    const cid = document.getElementById('s_clientId').value.trim();
+    const sid = document.getElementById('s_sheetId').value.trim();
+    const sname = document.getElementById('s_sheetName').value.trim() || 'Gastos HyJ';
+    const currency = document.getElementById('s_currency').value;
+    if (!cid) { showToast('Ingresá el Client ID', 'error'); return; }
+    if (!sid) { showToast('Ingresá el ID de la planilla', 'error'); return; }
+    config = Object.assign(config, { clientId: cid, sheetId: sid, sheetName: sname, defaultCurrency: currency });
+    saveConfig();
+    document.getElementById('moneda').value = currency;
+    showScreen('mainScreen');
+  }
+
+  function saveConfig() {
+    localStorage.setItem('gastosHyJ_config', JSON.stringify(config));
+  }
+
+  /* ============================================================
+     AUTENTICACION CON GOOGLE (Google Identity Services)
+
+     NOTA sobre persistencia de sesion:
+     Google Identity Services (flujo implicito, 100% del lado del cliente)
+     entrega un access_token de corta duracion (~1 hora) y NO entrega
+     refresh_token: los refresh tokens solo se otorgan en el flujo de
+     "Authorization Code" y requieren un backend con el Client Secret
+     para intercambiarlos (o una Service Account, que tampoco puede
+     usarse de forma segura desde el navegador porque expondria una
+     clave privada).
+
+     Para minimizar las re-conexiones manuales, esta app:
+       1. Guarda el access_token y su expiracion en localStorage.
+       2. Mientras el token no expiro, lo reutiliza sin pedir nada.
+       3. Cuando expira, intenta un refresh "silencioso" llamando a
+          requestAccessToken({prompt: ''}) — si el usuario sigue con
+          sesion activa en Google y ya otorgo el permiso, el navegador
+          puede renovar el token sin mostrar ningun dialogo.
+       4. Si el refresh silencioso falla (por bloqueo de popups, sesion
+          cerrada en Google, etc.) se muestra el link "Reconectar".
+
+     Mejora futura: si se quiere una sesion verdaderamente persistente
+     (sin reconectar nunca), habria que migrar a un pequeño backend o
+     a Google Apps Script Web App que actue como proxy hacia la planilla
+     usando una Service Account / cuenta de servicio del lado del servidor.
+     ============================================================ */
+
+  function initGIS() {
+    if (!config.clientId) return;
+
+    // Si tenemos un token guardado y todavia es valido, lo usamos directo
+    if (config.tokenData && config.tokenData.access_token && config.tokenData.expires_at > Date.now() + 60000) {
+      accessToken = config.tokenData.access_token;
+      setAuthConnected();
+    }
+
+    const waitGIS = setInterval(() => {
+      if (window.google && window.google.accounts) {
+        clearInterval(waitGIS);
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: config.clientId,
+          scope: 'https://www.googleapis.com/auth/spreadsheets',
+          callback: (resp) => {
+            if (resp.error) {
+              // Si el intento fue silencioso (prompt:'') no molestamos al usuario con un error
+              if (resp.error !== 'interaction_required' && resp.error !== 'access_denied') {
+                showToast('Error al conectar con Google', 'error');
+              }
+              return;
+            }
+            onTokenReceived(resp);
+          }
+        });
+
+        // Si no tenemos token valido, intentamos una renovacion silenciosa
+        if (!accessToken) {
+          try {
+            tokenClient.requestAccessToken({ prompt: '' });
+          } catch(e) { /* algunos navegadores bloquean el intento automatico */ }
+        } else {
+          // Ya estabamos conectados con el token cacheado: cargamos datos del dashboard
+          loadSheetData();
+        }
+      }
+    }, 200);
+  }
+
+  function onTokenReceived(resp) {
+    accessToken = resp.access_token;
+    const expiresInMs = (resp.expires_in || 3500) * 1000;
+    config.tokenData = { access_token: accessToken, expires_at: Date.now() + expiresInMs };
+    saveConfig();
+    setAuthConnected();
+    showToast('¡Conectado! Ya podés cargar y ver tus datos', 'success');
+    loadSheetData();
+  }
+
+  function setAuthConnected() {
+    document.getElementById('authDot').classList.add('connected');
+    document.getElementById('authLabel').textContent = '✓ Conectado con Google';
+  }
+
+  function setAuthDisconnected(msg) {
+    accessToken = null;
+    config.tokenData = null;
+    saveConfig();
+    document.getElementById('authDot').classList.remove('connected');
+    document.getElementById('authLabel').innerHTML = (msg || 'No conectado') + ' — <a href="#" onclick="signIn()">Conectar</a>';
+  }
+
+  function signIn() {
+    closeSettings();
+    if (!tokenClient) { showToast('Esperá un momento...', ''); return; }
+    tokenClient.requestAccessToken({ prompt: 'consent' });
+  }
+
+  /* ============================================================
+     UI: navegacion, selectores
+     ============================================================ */
+
+  function switchTab(tab) {
+    const isCargar = tab === 'cargar';
+    document.getElementById('tabBtnCargar').classList.toggle('active', isCargar);
+    document.getElementById('tabBtnDashboard').classList.toggle('active', !isCargar);
+    document.getElementById('panelCargar').classList.toggle('active', isCargar);
+    document.getElementById('panelDashboard').classList.toggle('active', !isCargar);
+
+    const bottom = document.getElementById('bottomAction');
+    if (isCargar) {
+      bottom.innerHTML = '<button class="btn-main" id="btnCargar" onclick="cargarGasto()">Cargar movimiento</button>';
+    } else {
+      bottom.innerHTML = '<button class="btn-main" id="btnCargar" onclick="loadSheetData(true)">🔄 Actualizar dashboard</button>';
+      if (sheetRecords.length === 0) loadSheetData();
+      else renderDashboard();
+    }
+  }
+
+  function selectPerson(name) {
+    selectedPerson = name;
+    document.getElementById('btn_hernan').classList.toggle('active', name === 'Hernan');
+    document.getElementById('btn_jessi').classList.toggle('active', name === 'Jessi');
+  }
+
+  function selectMovimiento(tipo) {
+    selectedMovimiento = tipo;
+    document.getElementById('mov_gasto').classList.toggle('selected', tipo === 'Gasto');
+    document.getElementById('mov_ingreso').classList.toggle('selected', tipo === 'Ingreso');
+  }
+
+  function setTipo(val) {
+    document.getElementById('tipo').value = val;
+    document.querySelectorAll('#tipoChips .chip').forEach(c => c.classList.toggle('selected', c.textContent.includes(val)));
+  }
+
+  /* ============================================================
+     UTILIDADES DE MONTO / MONEDA / FECHA
+     ============================================================ */
+
+  // Acepta "15,50", "120.75", "2.500,99", "2500.99", etc. y devuelve un Number
+  // sin redondear (mantiene todos los decimales ingresados).
+  function parseMonto(raw) {
+    if (typeof raw === 'number') return raw;
+    let s = String(raw).trim();
+    if (!s) return NaN;
+    // Si tiene coma, la tratamos como separador decimal y quitamos puntos de miles
+    if (s.includes(',')) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    }
+    return parseFloat(s);
+  }
+
+  // Formatea un monto con 2 decimales y el simbolo de la moneda correspondiente
+  function formatMonto(value, currency) {
+    const num = Number(value) || 0;
+    const formatted = num.toLocaleString('es-UY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const symbol = (CURRENCIES[currency] && CURRENCIES[currency].symbol) || currency || '';
+    return `${symbol} ${formatted}`;
+  }
+
+  // Convierte "d/m/yyyy" -> Date. Devuelve null si no se puede parsear.
+  function parseFechaStr(str) {
+    if (!str) return null;
+    const parts = String(str).split('/');
+    if (parts.length !== 3) return null;
+    const d = parseInt(parts[0], 10), m = parseInt(parts[1], 10), y = parseInt(parts[2], 10);
+    if (!d || !m || !y) return null;
+    return new Date(y, m - 1, d);
+  }
+
+  function monthKey(date) {
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}`;
+  }
+  function monthLabel(key) {
+    const [y, m] = key.split('-');
+    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    return `${meses[parseInt(m,10)-1]} ${y.slice(2)}`;
+  }
+
+  /* ============================================================
+     ESCRITURA: cargar un movimiento (gasto o ingreso)
+     ============================================================ */
+
+  async function cargarGasto() {
+    if (!accessToken) { showToast('Primero iniciá sesión con Google', 'error'); return; }
+    const fechaRaw = document.getElementById('fecha').value;
+    const tipo = document.getElementById('tipo').value.trim();
+    const montoRaw = document.getElementById('monto').value;
+    const moneda = document.getElementById('moneda').value;
+    const monto = parseMonto(montoRaw);
+
+    if (!fechaRaw || !tipo || !montoRaw || isNaN(monto)) { showToast('Completá todos los campos', 'error'); return; }
+    if (monto <= 0) { showToast('El monto debe ser mayor a 0', 'error'); return; }
+
+    const [y, m, d] = fechaRaw.split('-');
+    const fecha = `${parseInt(d)}/${parseInt(m)}/${y}`;
+
+    const btn = document.getElementById('btnCargar');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div>';
+    const range = config.sheetName + "!A:F";
+
+    // Estructura de fila: Persona | Fecha | Categoria | Monto | Moneda | Tipo (Gasto/Ingreso)
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [[selectedPerson, fecha, tipo, monto, moneda, selectedMovimiento]] })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const msg = data?.error?.message || 'Error';
+        if (msg.includes('invalid_token') || msg.includes('UNAUTHENTICATED')) {
+          setAuthDisconnected('Sesión expirada');
+          showToast('Sesión expirada, volvé a conectarte', 'error');
+        } else {
+          showToast('Error: ' + msg, 'error');
+        }
+      } else {
+        showToast(`✓ ${tipo} ${formatMonto(monto, moneda)} cargado`, 'success');
+        const record = { persona: selectedPerson, fecha, fechaDate: parseFechaStr(fecha), tipo, monto, moneda, movimiento: selectedMovimiento };
+        sessionHistory.unshift(record);
+        renderHistory();
+
+        // Actualizamos tambien la cache del dashboard para no tener que recargar todo de Sheets
+        sheetRecords.push(record);
+
+        document.getElementById('tipo').value = '';
+        document.getElementById('monto').value = '';
+        document.querySelectorAll('#tipoChips .chip').forEach(c => c.classList.remove('selected'));
+      }
+    } catch(e) {
+      showToast('Sin conexión', 'error');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = 'Cargar movimiento';
+  }
+
+  function renderHistory() {
+    const el = document.getElementById('historyList');
+    if (!sessionHistory.length) { el.innerHTML = '<div class="empty-state">Aún no cargaste movimientos</div>'; return; }
+    el.innerHTML = sessionHistory.map(g => `
+      <div class="history-card">
+        <div class="history-left">
+          <div class="h-name">${g.persona} · ${g.tipo}</div>
+          <div class="h-meta">${g.fecha} · ${g.moneda}</div>
+        </div>
+        <div class="history-right">
+          <div class="h-amount ${g.movimiento === 'Gasto' ? 'gasto' : 'ingreso'}">${g.movimiento === 'Gasto' ? '-' : '+'} ${formatMonto(g.monto, g.moneda)}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  /* ============================================================
+     LECTURA: traer todos los movimientos de la planilla
+     ============================================================ */
+
+  async function loadSheetData(manual) {
+    if (!accessToken) {
+      if (manual) showToast('Primero iniciá sesión con Google', 'error');
+      return;
+    }
+
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) refreshBtn.classList.add('spinning');
+
+    // Pedimos un rango amplio; filtramos filas vacias / encabezado despues.
+    const range = encodeURIComponent(config.sheetName + '!A1:F5000');
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${range}`;
+
+    try {
+      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+      const data = await res.json();
+      if (!res.ok) {
+        const msg = data?.error?.message || 'Error';
+        if (msg.includes('invalid_token') || msg.includes('UNAUTHENTICATED')) {
+          setAuthDisconnected('Sesión expirada');
+          showToast('Sesión expirada, volvé a conectarte', 'error');
+        } else {
+          showToast('Error al leer la planilla: ' + msg, 'error');
+        }
+        return;
+      }
+
+      const rows = data.values || [];
+      sheetRecords = rows.map(row => {
+        const [persona, fechaStr, tipo, montoRaw, moneda, movimiento] = row;
+        const monto = parseMonto(montoRaw);
+        // Descartamos filas que no parecen movimientos validos (encabezados, filas vacias, etc.)
+        if (!persona || !fechaStr || isNaN(monto)) return null;
+        const fechaDate = parseFechaStr(fechaStr);
+        return {
+          persona,
+          fecha: fechaStr,
+          fechaDate,
+          tipo: tipo || 'Sin categoría',
+          monto,
+          // Moneda por defecto si la fila vieja no la tenia (compatibilidad con datos anteriores)
+          moneda: (moneda && CURRENCIES[moneda.toUpperCase()]) ? moneda.toUpperCase() : config.defaultCurrency,
+          movimiento: (movimiento && movimiento.toLowerCase().startsWith('ing')) ? 'Ingreso' : 'Gasto'
+        };
+      }).filter(Boolean);
+
+      if (manual) showToast(`Sincronizado: ${sheetRecords.length} movimientos`, 'success');
+      renderDashboard();
+    } catch(e) {
+      showToast('Sin conexión', 'error');
+    }
+
+    if (refreshBtn) refreshBtn.classList.remove('spinning');
+  }
+
+  /* ============================================================
+     DASHBOARD: agregaciones y graficos
+     ============================================================ */
+
+  function getAvailableCurrencies() {
+    const set = new Set(sheetRecords.map(r => r.moneda));
+    if (set.size === 0) set.add(config.defaultCurrency);
+    return Array.from(set).sort();
+  }
+
+  function populateCurrencySelect() {
+    const sel = document.getElementById('dashCurrency');
+    const currencies = getAvailableCurrencies();
+    const current = sel.value;
+    sel.innerHTML = currencies.map(c => {
+      const label = CURRENCIES[c] ? `${c} - ${CURRENCIES[c].label}` : c;
+      return `<option value="${c}">${label}</option>`;
+    }).join('');
+    // Mantener seleccion previa si todavia existe, sino usar la moneda por defecto o la primera
+    if (currencies.includes(current)) sel.value = current;
+    else if (currencies.includes(config.defaultCurrency)) sel.value = config.defaultCurrency;
+    else sel.value = currencies[0];
+  }
+
+  function renderDashboard() {
+    const emptyEl = document.getElementById('dashboardEmpty');
+    const contentEl = document.getElementById('dashboardContent');
+
+    if (!sheetRecords.length) {
+      emptyEl.style.display = 'block';
+      contentEl.style.display = 'none';
+      return;
+    }
+    emptyEl.style.display = 'none';
+    contentEl.style.display = 'block';
+
+    populateCurrencySelect();
+    const currency = document.getElementById('dashCurrency').value;
+    // Los totales y graficos se calculan SOLO con la moneda seleccionada,
+    // para no mezclar importes de distintas monedas en una misma suma.
+    const records = sheetRecords.filter(r => r.moneda === currency);
+
+    // ---- Tarjetas resumen ----
+    let totalGasto = 0, totalIngreso = 0;
+    records.forEach(r => {
+      if (r.movimiento === 'Gasto') totalGasto += r.monto;
+      else totalIngreso += r.monto;
+    });
+    const balance = totalIngreso - totalGasto;
+
+    document.getElementById('statGastoTotal').textContent = formatMonto(totalGasto, currency);
+    document.getElementById('statIngresoTotal').textContent = formatMonto(totalIngreso, currency);
+    const balanceEl = document.getElementById('statBalance');
+    balanceEl.textContent = formatMonto(balance, currency);
+    balanceEl.classList.remove('income', 'expense');
+    balanceEl.classList.add(balance >= 0 ? 'income' : 'expense');
+    document.getElementById('statCantidad').textContent = records.length;
+
+    // ---- Gastos por categoria ----
+    const gastosPorCategoria = {};
+    records.filter(r => r.movimiento === 'Gasto').forEach(r => {
+      gastosPorCategoria[r.tipo] = (gastosPorCategoria[r.tipo] || 0) + r.monto;
+    });
+    const categorias = Object.keys(gastosPorCategoria).sort((a,b) => gastosPorCategoria[b] - gastosPorCategoria[a]);
+    const categoriaValores = categorias.map(c => gastosPorCategoria[c]);
+
+    renderBarChart('chartCategoriaBar', categorias, [{
+      label: `Gastos (${currency})`,
+      data: categoriaValores,
+      backgroundColor: 'rgba(245,120,107,0.55)',
+      borderColor: '#f5786b',
+      borderRadius: 6
+    }]);
+
+    renderPieChart('chartCategoriaPie', categorias, categoriaValores);
+
+    // ---- Gastos y movimientos por mes ----
+    const gastosPorMes = {};
+    const ingresosPorMes = {};
+    records.forEach(r => {
+      if (!r.fechaDate) return;
+      const key = monthKey(r.fechaDate);
+      if (r.movimiento === 'Gasto') gastosPorMes[key] = (gastosPorMes[key] || 0) + r.monto;
+      else ingresosPorMes[key] = (ingresosPorMes[key] || 0) + r.monto;
+    });
+    const allMonths = Array.from(new Set([...Object.keys(gastosPorMes), ...Object.keys(ingresosPorMes)])).sort();
+    const monthLabels = allMonths.map(monthLabel);
+
+    renderBarChart('chartGastosMes', monthLabels, [{
+      label: `Gastos (${currency})`,
+      data: allMonths.map(m => gastosPorMes[m] || 0),
+      backgroundColor: 'rgba(245,120,107,0.55)',
+      borderColor: '#f5786b',
+      borderRadius: 6
+    }]);
+
+    renderLineChart('chartEvolucion', monthLabels, [
+      {
+        label: `Ingresos (${currency})`,
+        data: allMonths.map(m => ingresosPorMes[m] || 0),
+        borderColor: '#3ecf8e',
+        backgroundColor: 'rgba(62,207,142,0.15)',
+        tension: 0.35,
+        fill: true
+      },
+      {
+        label: `Gastos (${currency})`,
+        data: allMonths.map(m => gastosPorMes[m] || 0),
+        borderColor: '#f5786b',
+        backgroundColor: 'rgba(245,120,107,0.15)',
+        tension: 0.35,
+        fill: true
+      }
+    ]);
+
+    // ---- Ultimos movimientos (todas las monedas, ordenado por fecha desc) ----
+    const ultimos = sheetRecords
+      .slice()
+      .sort((a,b) => (b.fechaDate ? b.fechaDate.getTime() : 0) - (a.fechaDate ? a.fechaDate.getTime() : 0))
+      .slice(0, 10);
+
+    document.getElementById('ultimosMovimientos').innerHTML = ultimos.map(r => `
+      <tr>
+        <td>${r.fecha}</td>
+        <td>${r.persona}</td>
+        <td><span class="tag-pill">${r.tipo}</span></td>
+        <td>${r.moneda}</td>
+        <td class="amount-cell ${r.movimiento === 'Gasto' ? 'gasto' : 'ingreso'}">${r.movimiento === 'Gasto' ? '-' : '+'} ${formatMonto(r.monto, r.moneda)}</td>
+      </tr>`).join('');
+  }
+
+  // ---- Helpers de Chart.js: configuracion comun para tema oscuro ----
+  const CHART_TEXT_COLOR = '#a3a3ab';
+  const CHART_GRID_COLOR = 'rgba(255,255,255,0.06)';
+
+  function destroyChart(id) {
+    if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+  }
+
+  function renderBarChart(canvasId, labels, datasets) {
+    destroyChart(canvasId);
+    const ctx = document.getElementById(canvasId);
+    if (!labels.length) { return; }
+    charts[canvasId] = new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: datasets.length > 1, labels: { color: CHART_TEXT_COLOR } } },
+        scales: {
+          x: { ticks: { color: CHART_TEXT_COLOR }, grid: { color: CHART_GRID_COLOR } },
+          y: { ticks: { color: CHART_TEXT_COLOR }, grid: { color: CHART_GRID_COLOR }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  function renderLineChart(canvasId, labels, datasets) {
+    destroyChart(canvasId);
+    const ctx = document.getElementById(canvasId);
+    if (!labels.length) { return; }
+    charts[canvasId] = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: CHART_TEXT_COLOR } } },
+        scales: {
+          x: { ticks: { color: CHART_TEXT_COLOR }, grid: { color: CHART_GRID_COLOR } },
+          y: { ticks: { color: CHART_TEXT_COLOR }, grid: { color: CHART_GRID_COLOR }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  const PIE_COLORS = ['#3ecf8e','#f5786b','#6e8efb','#f5c26b','#a78bfa','#4dd0e1','#f48fb1','#9ccc65','#ffab91','#90a4ae'];
+
+  function renderPieChart(canvasId, labels, values) {
+    destroyChart(canvasId);
+    const ctx = document.getElementById(canvasId);
+    if (!labels.length) { return; }
+    charts[canvasId] = new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels,
+        datasets: [{ data: values, backgroundColor: labels.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]), borderColor: '#151517', borderWidth: 2 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { color: CHART_TEXT_COLOR, boxWidth: 14, padding: 10 } } }
+      }
+    });
+  }
+
+  /* ============================================================
+     CONFIGURACION (panel de ajustes)
+     ============================================================ */
+
+  function openSettings() {
+    document.getElementById('cfg_clientId').value = config.clientId;
+    document.getElementById('cfg_sheetId').value = config.sheetId;
+    document.getElementById('cfg_sheetName').value = config.sheetName;
+    document.getElementById('cfg_currency').value = config.defaultCurrency;
+    document.getElementById('settingsPanel').classList.add('open');
+  }
+
+  function closeSettings() { document.getElementById('settingsPanel').classList.remove('open'); }
+  function closeSettingsOutside(e) { if (e.target === document.getElementById('settingsPanel')) closeSettings(); }
+
+  function saveSettings() {
+    const cid = document.getElementById('cfg_clientId').value.trim();
+    const sid = document.getElementById('cfg_sheetId').value.trim();
+    const sname = document.getElementById('cfg_sheetName').value.trim() || 'Gastos HyJ';
+    const currency = document.getElementById('cfg_currency').value;
+    if (!cid || !sid) { showToast('Completá los campos', 'error'); return; }
+
+    const clientChanged = cid !== config.clientId;
+    config = Object.assign(config, { clientId: cid, sheetId: sid, sheetName: sname, defaultCurrency: currency });
+    if (clientChanged) config.tokenData = null; // si cambia el Client ID, el token anterior ya no sirve
+    saveConfig();
+
+    document.getElementById('moneda').value = currency;
+    closeSettings();
+    showToast('Guardado', 'success');
+    initGIS();
+    if (sheetRecords.length) loadSheetData();
+  }
+
+  /* ============================================================
+     TOAST
+     ============================================================ */
+
+  let toastTimer;
+  function showToast(msg, type = '') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+  }
+
+  /* ============================================================
+     SETUP INICIAL DE LA MONEDA EN EL FORMULARIO
+     ============================================================ */
+  document.getElementById('moneda').value = config.defaultCurrency;
+</script>
+</body>
+</html>
