@@ -537,6 +537,7 @@
   // Datos leidos de la planilla (cache en memoria)
   let sheetRecords = [];
   let charts = {}; // instancias de Chart.js, para poder destruirlas al re-renderizar
+  let lastSyncError = null; // ultimo error de sincronizacion, para mostrarlo en el dashboard
 
   /* ============================================================
      INICIALIZACION
@@ -695,6 +696,18 @@
       else renderDashboard();
     }
   }
+
+  // El panel "Dashboard" tiene display:none cuando no esta activo. Los
+  // graficos de Chart.js solo deben crearse/recrearse cuando es visible.
+  function isDashboardVisible() {
+    return document.getElementById('panelDashboard').classList.contains('active');
+  }
+
+  // Si la ventana cambia de tamaño (rotacion del celular, resize de la
+  // ventana en desktop), le avisamos a cada grafico que se reajuste.
+  window.addEventListener('resize', () => {
+    Object.values(charts).forEach(c => { try { c.resize(); } catch(e) {} });
+  });
 
   function selectPerson(name) {
     selectedPerson = name;
@@ -880,26 +893,43 @@
     if (refreshBtn) refreshBtn.classList.add('spinning');
 
     // Pedimos un rango amplio; filtramos filas vacias / encabezado despues.
+    // IMPORTANTE: config.sheetName debe coincidir EXACTAMENTE con el nombre
+    // de la pestaña de la planilla (mayusculas, minusculas y espacios incluidos),
+    // tal como aparece en la solapa al pie de Google Sheets. Si no coincide,
+    // la API responde con un error "Unable to parse range" y el dashboard
+    // queda vacio.
     const range = encodeURIComponent(config.sheetName + '!A1:F5000');
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${range}`;
+
+    lastSyncError = null;
 
     try {
       const res = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
       const data = await res.json();
       if (!res.ok) {
-        const msg = data?.error?.message || 'Error';
+        const msg = data?.error?.message || 'Error desconocido';
         if (msg.includes('invalid_token') || msg.includes('UNAUTHENTICATED')) {
           setAuthDisconnected('Sesión expirada');
           showToast('Sesión expirada, volvé a conectarte', 'error');
+          lastSyncError = 'La sesión con Google expiró. Reconectá la cuenta con el link de arriba.';
         } else {
           showToast('Error al leer la planilla: ' + msg, 'error');
+          lastSyncError = `No se pudo leer la planilla (${msg}). Revisá en Configuración que "Nombre de hoja" sea exactamente "${config.sheetName}" tal como aparece en la pestaña de tu Google Sheet.`;
         }
+        renderDashboard();
+        if (refreshBtn) refreshBtn.classList.remove('spinning');
         return;
       }
 
       const rows = data.values || [];
+      // Estructura esperada por columna (A-F): Persona | Fecha | Categoria | Monto | Moneda | Tipo
       sheetRecords = rows.map(row => {
-        const [persona, fechaStr, tipo, montoRaw, moneda, movimiento] = row;
+        let [persona, fechaStr, tipo, montoRaw, moneda, movimiento] = row;
+        persona = (persona ?? '').toString().trim();
+        fechaStr = (fechaStr ?? '').toString().trim();
+        tipo = (tipo ?? '').toString().trim();
+        moneda = (moneda ?? '').toString().trim();
+        movimiento = (movimiento ?? '').toString().trim();
         const monto = parseMonto(montoRaw);
         // Descartamos filas que no parecen movimientos validos (encabezados, filas vacias, etc.)
         if (!persona || !fechaStr || isNaN(monto)) return null;
@@ -912,14 +942,20 @@
           monto,
           // Moneda por defecto si la fila vieja no la tenia (compatibilidad con datos anteriores)
           moneda: (moneda && CURRENCIES[moneda.toUpperCase()]) ? moneda.toUpperCase() : config.defaultCurrency,
-          movimiento: (movimiento && movimiento.toLowerCase().startsWith('ing')) ? 'Ingreso' : 'Gasto'
+          movimiento: movimiento.toLowerCase().startsWith('ing') ? 'Ingreso' : 'Gasto'
         };
       }).filter(Boolean);
 
       if (manual) showToast(`Sincronizado: ${sheetRecords.length} movimientos`, 'success');
+      if (!sheetRecords.length) {
+        lastSyncError = `La hoja "${config.sheetName}" se leyó correctamente, pero no se encontraron filas con datos válidos. Revisá que Persona, Fecha y Monto estén en las columnas A, B y D.`;
+      }
       renderDashboard();
     } catch(e) {
+      console.error(e);
+      lastSyncError = 'Sin conexión a internet, o el navegador bloqueó la solicitud a Google Sheets.';
       showToast('Sin conexión', 'error');
+      renderDashboard();
     }
 
     if (refreshBtn) refreshBtn.classList.remove('spinning');
@@ -954,12 +990,24 @@
     const contentEl = document.getElementById('dashboardContent');
 
     if (!sheetRecords.length) {
+      emptyEl.innerHTML = lastSyncError
+        ? `⚠️ ${lastSyncError}`
+        : 'No hay datos para mostrar todavía.<br>Cargá movimientos o conectá tu cuenta de Google y tocá 🔄 para sincronizar.';
       emptyEl.style.display = 'block';
       contentEl.style.display = 'none';
       return;
     }
     emptyEl.style.display = 'none';
     contentEl.style.display = 'block';
+
+    // Si la libreria Chart.js no llego a cargar (ej: CDN bloqueado / sin
+    // internet en ese momento), avisamos en vez de fallar en silencio.
+    if (typeof Chart === 'undefined') {
+      contentEl.style.display = 'none';
+      emptyEl.style.display = 'block';
+      emptyEl.innerHTML = '⚠️ No se pudo cargar la librería de gráficos (Chart.js). Verificá tu conexión a internet y volvé a abrir la app.';
+      return;
+    }
 
     populateCurrencySelect();
     const currency = document.getElementById('dashCurrency').value;
@@ -982,6 +1030,16 @@
     balanceEl.classList.remove('income', 'expense');
     balanceEl.classList.add(balance >= 0 ? 'income' : 'expense');
     document.getElementById('statCantidad').textContent = records.length;
+
+    // Los graficos de Chart.js calculan su tamaño en base al contenedor.
+    // Si el panel "Dashboard" esta oculto (display:none) en este momento
+    // -por ejemplo, porque los datos se sincronizaron mientras el usuario
+    // estaba en la pestaña "Cargar"- el contenedor mide 0x0 y los graficos
+    // quedarian invisibles. En ese caso salimos aca: las tarjetas ya se
+    // actualizaron, y switchTab() vuelve a llamar a renderDashboard() cuando
+    // el usuario abre la pestaña "Dashboard", momento en el que el panel ya
+    // es visible y los graficos se crean con el tamaño correcto.
+    if (!isDashboardVisible()) return;
 
     // ---- Gastos por categoria ----
     const gastosPorCategoria = {};
