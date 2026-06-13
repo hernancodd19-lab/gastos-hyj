@@ -796,11 +796,6 @@ function parseFechaStr(str) {
 
   return null;
 }
-    const d = parseInt(parts[0], 10), m = parseInt(parts[1], 10), y = parseInt(parts[2], 10);
-    if (!d || !m || !y) return null;
-    return new Date(y, m - 1, d);
-  }
-
   function monthKey(date) {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}`;
   }
