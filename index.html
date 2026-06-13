@@ -779,7 +779,7 @@ function parseFechaStr(str) {
 
   // yyyy-mm-dd
   if (str.includes('-')) {
-      return new Date(str);
+    return new Date(str);
   }
 
   // dd/mm/yyyy
@@ -787,11 +787,11 @@ function parseFechaStr(str) {
 
   if (p.length === 3) {
 
-      const d = parseInt(p[0],10);
-      const m = parseInt(p[1],10);
-      const y = parseInt(p[2],10);
+    const d = parseInt(p[0],10);
+    const m = parseInt(p[1],10);
+    const y = parseInt(p[2],10);
 
-      return new Date(y,m-1,d);
+    return new Date(y,m-1,d);
   }
 
   return null;
