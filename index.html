@@ -502,7 +502,7 @@
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async></script>
 <!-- Chart.js para los graficos del dashboard -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
   /* ============================================================
@@ -773,10 +773,29 @@ function parseMonto(raw) {
   }
 
   // Convierte "d/m/yyyy" -> Date. Devuelve null si no se puede parsear.
-  function parseFechaStr(str) {
-    if (!str) return null;
-    const parts = String(str).split('/');
-    if (parts.length !== 3) return null;
+function parseFechaStr(str) {
+
+  if (!str) return null;
+
+  // yyyy-mm-dd
+  if (str.includes('-')) {
+      return new Date(str);
+  }
+
+  // dd/mm/yyyy
+  const p = str.split('/');
+
+  if (p.length === 3) {
+
+      const d = parseInt(p[0],10);
+      const m = parseInt(p[1],10);
+      const y = parseInt(p[2],10);
+
+      return new Date(y,m-1,d);
+  }
+
+  return null;
+}
     const d = parseInt(parts[0], 10), m = parseInt(parts[1], 10), y = parseInt(parts[2], 10);
     if (!d || !m || !y) return null;
     return new Date(y, m - 1, d);
