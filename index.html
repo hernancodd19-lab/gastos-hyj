@@ -732,16 +732,37 @@
 
   // Acepta "15,50", "120.75", "2.500,99", "2500.99", etc. y devuelve un Number
   // sin redondear (mantiene todos los decimales ingresados).
-  function parseMonto(raw) {
-    if (typeof raw === 'number') return raw;
-    let s = String(raw).trim();
-    if (!s) return NaN;
-    // Si tiene coma, la tratamos como separador decimal y quitamos puntos de miles
-    if (s.includes(',')) {
+function parseMonto(raw) {
+  if (typeof raw === 'number') return raw;
+
+  let s = String(raw).trim();
+
+  if (!s) return NaN;
+
+  // elimina espacios
+  s = s.replace(/\s/g, '');
+
+  // si tiene ambos separadores
+  if (s.includes('.') && s.includes(',')) {
+
+    // formato 1.234,56
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
       s = s.replace(/\./g, '').replace(',', '.');
     }
-    return parseFloat(s);
+
+    // formato 1,234.56
+    else {
+      s = s.replace(/,/g, '');
+    }
+
+  } else if (s.includes(',')) {
+
+    s = s.replace(',', '.');
+
   }
+
+  return parseFloat(s);
+}
 
   // Formatea un monto con 2 decimales y el simbolo de la moneda correspondiente
   function formatMonto(value, currency) {
